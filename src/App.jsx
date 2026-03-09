@@ -291,7 +291,7 @@ const App = () => {
 
   const handleAdminLogin = (e) => {
     e.preventDefault();
-    if (adminPin === '15339') { setView('ADMIN_DASHBOARD'); setAdminPin(''); } 
+    if (adminPin === '1533') { setView('ADMIN_DASHBOARD'); setAdminPin(''); } 
     else { alert("Incorrect PIN"); setAdminPin(''); }
   };
 
