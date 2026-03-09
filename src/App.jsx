@@ -6,7 +6,6 @@ import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { User, Mail, Phone, ClipboardCheck, Printer, ChevronLeft, Lock, CheckCircle2, ArrowRight, RefreshCw, Folder, Briefcase, Settings, Plus, ImageIcon, X, Trash2, Smartphone, Save, Search, Download, Calendar, ShieldCheck, Eraser, Activity, Grid } from 'lucide-react';
 
 // --- FIREBASE CONFIG ---
-// --- FIREBASE CONFIG (Connected to .env) ---
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -29,6 +28,7 @@ const defaultSession = {
   logoHeight2: 80,
   reqEmail: true,
   reqPhone: true,
+  reqInvitedBy: true, // Added this
   allowAgent: true,
   reqSecuritiesLicense: false,
   reqRvpUpline: false,
@@ -43,19 +43,16 @@ const App = () => {
   const [builderSubTab, setBuilderSubTab] = useState('GUEST'); 
   const [adminPin, setAdminPin] = useState('');
   
-  // Data States
   const [submissions, setSubmissions] = useState([]);
   const [presets, setPresets] = useState([]);
   const [logoLibrary, setLogoLibrary] = useState([]);
   const [pickingLogoTarget, setPickingLogoTarget] = useState(null); 
   
-  // Session States
   const [liveSession, setLiveSession] = useState(defaultSession);
   const [builderSession, setBuilderSession] = useState(defaultSession);
   const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
   const [isSessionLoaded, setIsSessionLoaded] = useState(false);
 
-  // Form & Filter States
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [autoSignTriggered, setAutoSignTriggered] = useState(false);
@@ -69,14 +66,12 @@ const App = () => {
   const fileInputRef1 = useRef(null);
   const fileInputRef2 = useRef(null);
 
-  // 1. Auth Init
   useEffect(() => {
     signInAnonymously(auth).catch(console.error);
     const unsubscribe = onAuthStateChanged(auth, setUser);
     return () => unsubscribe();
   }, []);
 
-  // 2. Fetch Data
   useEffect(() => {
     const unsubSettings = onSnapshot(doc(db, 'artifacts', 'virtual-sign-sheet', 'config', 'currentSession'), (snap) => {
       if (snap.exists()) {
@@ -90,6 +85,7 @@ const App = () => {
           logoHeight2: data.logoHeight2 || 80,
           reqEmail: data.reqEmail !== false,
           reqPhone: data.reqPhone !== false,
+          reqInvitedBy: data.reqInvitedBy !== false, // Added this
           allowAgent: data.allowAgent !== false,
           reqSecuritiesLicense: data.reqSecuritiesLicense || false,
           reqRvpUpline: data.reqRvpUpline || false,
@@ -113,7 +109,6 @@ const App = () => {
     return () => { unsubSignins(); unsubSettings(); unsubPresets(); };
   }, []);
 
-  // 3. Auto-Submit Feature for Returning Agents
   useEffect(() => {
     if (view === 'SIGNIN' && isSessionLoaded && !autoSignTriggered) {
       const savedAgent = localStorage.getItem('saved_agent_info');
@@ -166,7 +161,6 @@ const App = () => {
     } catch (error) { console.error("Error fetching logos"); }
   };
 
-  // --- DERIVED DATA & ROSTER STATS ---
   const { uniqueDates, displayedSubmissions, rosterStats } = useMemo(() => {
     const dates = [...new Set(submissions.map(s => s.dateString))].filter(Boolean);
     let filtered = submissions;
@@ -179,17 +173,14 @@ const App = () => {
         s.email?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-    
     const stats = {
       total: filtered.length,
       agents: filtered.filter(s => s.role === 'Agent').length,
       guests: filtered.filter(s => s.role === 'Guest').length
     };
-    
     return { uniqueDates: dates, displayedSubmissions: filtered, rosterStats: stats };
   }, [submissions, selectedFolder, searchTerm]);
 
-  // --- ACTIONS ---
   const handleGuestSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -204,13 +195,13 @@ const App = () => {
       await addDoc(collection(db, 'artifacts', 'virtual-sign-sheet', 'public', 'data', 'signins'), {
         name: formData.name,
         email: (liveSession.reqEmail && formData.email) ? formData.email : 'N/A',
-        phone: liveSession.reqPhone ? formData.phone : 'N/A',
+        phone: (liveSession.reqPhone && formData.phone) ? formData.phone : 'N/A',
         sessionTitle: liveSession.title,
         role: (liveSession.allowAgent && isAgent) ? 'Agent' : 'Guest',
         repId: (liveSession.allowAgent && isAgent) ? formData.repId : 'N/A',
         rvpUpline: (liveSession.reqRvpUpline && isAgent && formData.rvpUpline) ? formData.rvpUpline : 'N/A',
         securitiesLicense: (liveSession.reqSecuritiesLicense && isAgent) ? (formData.securitiesLicense ? 'Yes' : 'No') : 'N/A',
-        invitedBy: (!isAgent && formData.invitedBy) ? formData.invitedBy : 'N/A',
+        invitedBy: (!isAgent && liveSession.reqInvitedBy && formData.invitedBy) ? formData.invitedBy : 'N/A',
         timestamp: serverTimestamp(),
         dateString: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
         timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -220,7 +211,6 @@ const App = () => {
         setFormData({ name: '', email: '', phone: '', repId: '', invitedBy: '', securitiesLicense: false, rvpUpline: '' });
         setIsAgent(false);
       }
-      
       setShowSuccess(true);
     } catch (err) { alert("Submission failed."); } 
     finally { setIsSubmitting(false); }
@@ -238,16 +228,11 @@ const App = () => {
   const cleanDuplicates = async () => {
     const seen = new Set();
     const toDelete = [];
-    
     displayedSubmissions.forEach(sub => {
       const key = `${sub.name?.toLowerCase()}-${sub.role}-${sub.dateString}`;
-      if (seen.has(key)) {
-        toDelete.push(sub.id);
-      } else {
-        seen.add(key);
-      }
+      if (seen.has(key)) toDelete.push(sub.id);
+      else seen.add(key);
     });
-
     if (toDelete.length > 0) {
       if (window.confirm(`Found ${toDelete.length} exact duplicate sign-in(s). Would you like to clean them up?`)) {
         try {
@@ -257,9 +242,7 @@ const App = () => {
           alert("Duplicates removed successfully!");
         } catch(e) { alert("Failed to delete duplicates."); }
       }
-    } else {
-      alert("No duplicates found in this folder!");
-    }
+    } else alert("No duplicates found in this folder!");
   };
 
   const deleteLogo = async (logoItem) => {
@@ -276,11 +259,9 @@ const App = () => {
   const downloadCSV = () => {
     const headers = ["Name", "Email", "Phone", "Role", "RepID", "RVP Upline", "Securities License", "Invited By", "Date", "Time"];
     const rows = displayedSubmissions.map(s => [s.name, s.email, s.phone, s.role, s.repId, s.rvpUpline || 'N/A', s.securitiesLicense || 'N/A', s.invitedBy || 'N/A', s.dateString, s.timeString]);
-    
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += `"${liveSession.title}","${liveSession.subtitle}"\n\n`;
     csvContent += [headers, ...rows].map(e => e.join(",")).join("\n");
-    
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -310,15 +291,13 @@ const App = () => {
 
   const savePreset = async () => {
     const name = prompt("Name this preset layout:");
-    if (name) {
-      await addDoc(collection(db, 'artifacts', 'virtual-sign-sheet', 'presets'), { ...builderSession, presetName: name });
-    }
+    if (name) await addDoc(collection(db, 'artifacts', 'virtual-sign-sheet', 'presets'), { ...builderSession, presetName: name });
   };
 
   const loadPreset = (p) => {
     updateBuilder({
       title: p.title || '', subtitle: p.subtitle || '', logo: p.logo || '', logoHeight: p.logoHeight || 80, logo2: p.logo2 || '', logoHeight2: p.logoHeight2 || 80,
-      reqEmail: p.reqEmail !== false, reqPhone: p.reqPhone !== false, allowAgent: p.allowAgent !== false, reqSecuritiesLicense: p.reqSecuritiesLicense || false, reqRvpUpline: p.reqRvpUpline || false,
+      reqEmail: p.reqEmail !== false, reqPhone: p.reqPhone !== false, reqInvitedBy: p.reqInvitedBy !== false, allowAgent: p.allowAgent !== false, reqSecuritiesLicense: p.reqSecuritiesLicense || false, reqRvpUpline: p.reqRvpUpline || false,
       guestTabLabel: p.guestTabLabel || "I'm a Guest", agentTabLabel: p.agentTabLabel || "I'm an Agent"
     });
   };
@@ -336,15 +315,11 @@ const App = () => {
   };
 
   const deleteItem = async (path, id) => {
-    if (window.confirm("Permanently delete?")) {
-      await deleteDoc(doc(db, 'artifacts', 'virtual-sign-sheet', path, id));
-    }
+    if (window.confirm("Permanently delete?")) await deleteDoc(doc(db, 'artifacts', 'virtual-sign-sheet', path, id));
   };
 
-  // --- RENDER FORM ---
   const renderSignInForm = (isPreview = false) => {
     const s = isPreview ? builderSession : liveSession;
-    
     return (
       <div className={`modern-card ${isPreview ? 'preview-mode' : ''}`} style={isPreview ? { transform: 'scale(0.85)', transformOrigin: 'top center', margin: '0 auto', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: '8px solid #0f172a' } : {}}>
         <header style={{marginBottom: '1.5rem', textAlign: 'center'}}>
@@ -368,23 +343,19 @@ const App = () => {
           </div>
         ) : (
           <form onSubmit={isPreview ? (e)=>e.preventDefault() : handleGuestSubmit} className="signin-form">
-            
-            {/* Top Guest / Agent Toggle */}
             {s.allowAgent && !autoSignTriggered && (
               <div style={{ display: 'flex', background: '#f1f5f9', padding: '0.5rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
                 <button type="button" onClick={() => setIsAgent(false)} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: !isAgent ? 'white' : 'transparent', color: !isAgent ? '#0f172a' : '#64748b', fontWeight: 'bold', boxShadow: !isAgent ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', transition: '0.2s', cursor: 'pointer' }}>{s.guestTabLabel}</button>
                 <button type="button" onClick={() => setIsAgent(true)} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: isAgent ? 'white' : 'transparent', color: isAgent ? '#0f172a' : '#64748b', fontWeight: 'bold', boxShadow: isAgent ? '0 2px 4px rgba(0,0,0,0.05)' : 'none', transition: '0.2s', cursor: 'pointer' }}>{s.agentTabLabel}</button>
               </div>
             )}
-
             <>
               <div className="input-group">
                 <label className="input-label">Full Name</label>
                 <div className="input-wrapper"><User size={18} className="input-icon" /><input className="modern-input" required placeholder="Name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} disabled={isPreview}/></div>
               </div>
 
-              {/* Only show "Who invited you?" if it's a Guest */}
-              {!isAgent && (
+              {!isAgent && s.reqInvitedBy && (
                 <div className="input-group" style={{ animation: 'fadeIn 0.3s' }}>
                   <label className="input-label">Who invited you?</label>
                   <div className="input-wrapper"><User size={18} className="input-icon" /><input className="modern-input" placeholder="Name of person" value={formData.invitedBy} onChange={(e) => setFormData({...formData, invitedBy: e.target.value})} disabled={isPreview}/></div>
@@ -405,36 +376,30 @@ const App = () => {
                 </div>
               )}
 
-              {/* Agent Specific Fields */}
               {s.allowAgent && isAgent && (
                 <div style={{ animation: 'fadeIn 0.3s' }}>
-                  
                   {s.reqRvpUpline && (
                     <div className="input-group" style={{ animation: 'fadeIn 0.3s' }}>
                       <label className="input-label">RVP Upline</label>
                       <div className="input-wrapper"><User size={18} className="input-icon" /><input className="modern-input" required placeholder="RVP Name" value={formData.rvpUpline} onChange={(e) => setFormData({...formData, rvpUpline: e.target.value})} disabled={isPreview}/></div>
                     </div>
                   )}
-
                   <div className="input-group">
                     <label className="input-label">REP ID</label>
                     <div className="input-wrapper"><Briefcase size={18} className="input-icon" /><input className="modern-input" required placeholder="Ex: ABC12" value={formData.repId} onChange={(e) => setFormData({...formData, repId: e.target.value})} disabled={isPreview}/></div>
                   </div>
-
                   {s.reqSecuritiesLicense && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', background: '#eff6ff', padding: '1rem', borderRadius: '12px', border: '1px solid #dbeafe', animation: 'fadeIn 0.3s' }}>
                       <input type="checkbox" id="sec-license" checked={formData.securitiesLicense} onChange={(e) => setFormData({...formData, securitiesLicense: e.target.checked})} style={{ width: '1.2rem', height: '1.2rem' }} disabled={isPreview} />
                       <label htmlFor="sec-license" style={{ fontWeight: 'bold', color: '#1e40af', cursor: 'pointer' }}>I hold a Securities License</label>
                     </div>
                   )}
-                  
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                     <input type="checkbox" id="remember-me" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} style={{ width: '1.2rem', height: '1.2rem' }} disabled={isPreview} />
                     <label htmlFor="remember-me" style={{ fontWeight: 'bold', color: '#0f172a', cursor: 'pointer' }}>Remember my info on this device</label>
                   </div>
                 </div>
               )}
-
               <button disabled={isSubmitting || isPreview} type="submit" className="primary-button" style={{marginTop: '1rem'}}>{isSubmitting ? "Processing..." : "Sign In"} <ArrowRight size={20} /></button>
             </>
           </form>
@@ -445,7 +410,6 @@ const App = () => {
 
   return (
     <div className="app-shell">
-      {/* Cloud Logo Library Picker Overlay */}
       {pickingLogoTarget && (
         <div style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem'}}>
           <div style={{background: 'white', padding: '2rem', borderRadius: '1.5rem', maxWidth: '600px', width: '100%', maxHeight: '80vh', overflow: 'auto'}}>
@@ -477,7 +441,6 @@ const App = () => {
 
       <main className="main-container">
         {view === 'SIGNIN' && renderSignInForm(false)}
-
         {view === 'ADMIN_LOGIN' && (
           <div className="modern-card login-card" style={{maxWidth: '400px', margin: '5rem auto'}}>
              <Lock size={48} color="#4f46e5" style={{margin: '0 auto 1rem'}} />
@@ -508,10 +471,8 @@ const App = () => {
                     <div style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
                       <div><label className="input-label">Title</label><input className="modern-input" value={builderSession.title} onChange={(e) => updateBuilder({ title: e.target.value })} /></div>
                       <div><label className="input-label">Subtitle</label><input className="modern-input" value={builderSession.subtitle} onChange={(e) => updateBuilder({ subtitle: e.target.value })} /></div>
-                      
                       <div style={{ padding: '1rem', background: '#f8fafc', borderRadius: '12px' }}>
                         <label className="input-label">Visibility Options</label>
-                        
                         <div style={{display:'flex', gap:'0.5rem', borderBottom:'1px solid #e2e8f0', marginBottom:'1rem', paddingBottom:'0.5rem', marginTop: '0.5rem'}}>
                            <button onClick={() => setBuilderSubTab('GUEST')} style={{background:'none', border:'none', fontWeight:'bold', color: builderSubTab === 'GUEST' ? '#4f46e5' : '#94a3b8', cursor:'pointer'}}>Guest Tab</button>
                            <button onClick={() => setBuilderSubTab('AGENT')} style={{background:'none', border:'none', fontWeight:'bold', color: builderSubTab === 'AGENT' ? '#4f46e5' : '#94a3b8', cursor:'pointer'}}>Agent Tab</button>
@@ -521,6 +482,7 @@ const App = () => {
                            <div className="fade-in">
                               <label style={{fontSize: '0.8rem', color: '#64748b'}}>Guest Button Text</label>
                               <input className="modern-input" style={{marginBottom:'1rem', padding:'0.5rem'}} value={builderSession.guestTabLabel} onChange={(e) => updateBuilder({ guestTabLabel: e.target.value })} />
+                              <label style={{display:'flex', gap:'0.5rem', marginBottom:'0.5rem', fontWeight:'bold'}}><input type="checkbox" checked={builderSession.reqInvitedBy} onChange={(e)=>updateBuilder({reqInvitedBy: e.target.checked})}/> Show Invited By Field</label>
                               <label style={{display:'flex', gap:'0.5rem', marginBottom:'0.5rem', fontWeight:'bold'}}><input type="checkbox" checked={builderSession.reqEmail} onChange={(e)=>updateBuilder({reqEmail: e.target.checked})}/> Show Email Field</label>
                               <label style={{display:'flex', gap:'0.5rem', fontWeight:'bold'}}><input type="checkbox" checked={builderSession.reqPhone} onChange={(e)=>updateBuilder({reqPhone: e.target.checked})}/> Show Phone Field</label>
                            </div>
@@ -600,7 +562,6 @@ const App = () => {
                    </div>
                 </header>
 
-                {/* Dashboard Stats */}
                 <div className="print:hidden" style={{display: 'flex', gap: '1.5rem', marginBottom: '2rem'}}>
                    <div style={{flex: 1, background: 'white', padding: '1.5rem', borderRadius: '1rem', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '1rem'}}>
                      <div style={{background: '#eff6ff', padding: '1rem', borderRadius: '50%', color: '#3b82f6'}}><Activity size={24}/></div>
@@ -626,8 +587,6 @@ const App = () => {
                   </div>
 
                   <div style={{ flex: 1, background: 'white', borderRadius: '1.5rem', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                    
-                    {/* PDF Print Header (Hidden on screen) */}
                     <div className="print-only" style={{ padding: '2rem', textAlign: 'center', borderBottom: '2px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '2rem', marginBottom: '1.5rem' }}>
                         {liveSession.logo && <img src={liveSession.logo} style={{ height: `${liveSession.logoHeight}px`, objectFit: 'contain' }} />}
