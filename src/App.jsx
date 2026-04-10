@@ -297,7 +297,7 @@ const App = () => {
       setView('ADMIN_DASHBOARD');
       setAdminPin('');
     } else {
-\      alert("Incorrect PIN");
+      alert("Incorrect PIN");
       setAdminPin('');
     }
   };
