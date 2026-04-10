@@ -128,6 +128,16 @@ const App = () => {
   }, [view, isSessionLoaded]);
 
   const performBackgroundSubmit = async (parsedData) => {
+    const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    const alreadySignedIn = submissions.some(
+      sub => sub.name?.toLowerCase().trim() === parsedData.name.toLowerCase().trim() && sub.dateString === today
+    );
+
+    if (alreadySignedIn) {
+      setShowSuccess(true);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await addDoc(collection(db, 'artifacts', 'virtual-sign-sheet', 'public', 'data', 'signins'), {
@@ -141,7 +151,7 @@ const App = () => {
         securitiesLicense: parsedData.securitiesLicense ? 'Yes' : 'No',
         invitedBy: 'N/A',
         timestamp: serverTimestamp(),
-        dateString: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
+        dateString: today,
         timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       });
       setShowSuccess(true);
@@ -187,6 +197,17 @@ const App = () => {
 
   const handleGuestSubmit = async (e) => {
     e.preventDefault();
+
+    const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    const alreadySignedIn = submissions.some(
+      sub => sub.name?.toLowerCase().trim() === formData.name.toLowerCase().trim() && sub.dateString === today
+    );
+
+    if (alreadySignedIn) {
+      alert(`${formData.name} has already signed in for today.`);
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (isAgent && rememberMe) {
@@ -207,7 +228,7 @@ const App = () => {
         securitiesLicense: (liveSession.reqSecuritiesLicense && isAgent) ? (formData.securitiesLicense ? 'Yes' : 'No') : 'N/A',
         invitedBy: (!isAgent && liveSession.reqInvitedBy && formData.invitedBy) ? formData.invitedBy : 'N/A',
         timestamp: serverTimestamp(),
-        dateString: new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }),
+        dateString: today,
         timeString: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       });
       
@@ -233,7 +254,7 @@ const App = () => {
     const seen = new Set();
     const toDelete = [];
     displayedSubmissions.forEach(sub => {
-      const key = `${sub.name?.toLowerCase()}-${sub.role}-${sub.dateString}`;
+      const key = `${sub.name?.toLowerCase().trim()}-${sub.role}-${sub.dateString}`;
       if (seen.has(key)) toDelete.push(sub.id);
       else seen.add(key);
     });
