@@ -297,8 +297,14 @@ const App = () => {
 
   const handleAdminLogin = (e) => {
     e.preventDefault();
-    if (adminPin === '1533') { setView('ADMIN_DASHBOARD'); setAdminPin(''); } 
-    else { alert("Incorrect PIN"); setAdminPin(''); }
+    if (adminPin === '1533') {
+      setView('ADMIN_DASHBOARD');
+      setAdminPin('');
+      setIsDemoMode(false);
+    } else {
+      alert("Incorrect PIN");
+      setAdminPin('');
+    }
   };
 
   const updateBuilder = (newData) => {
@@ -520,6 +526,7 @@ const App = () => {
                               setDemoPinInput('');
                             } else {
                               alert('Incorrect PIN.');
+                              setDemoPinInput('');
                             }
                           }} 
                           className="primary-button" 
