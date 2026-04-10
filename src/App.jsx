@@ -63,10 +63,6 @@ const App = () => {
   const [selectedFolder, setSelectedFolder] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   
-  // --- DEMO MODE STATE ---
-  const [isDemoMode, setIsDemoMode] = useState(true);
-  const [demoPinInput, setDemoPinInput] = useState('');
-
   const fileInputRef1 = useRef(null);
   const fileInputRef2 = useRef(null);
 
@@ -300,9 +296,8 @@ const App = () => {
     if (adminPin === '1533') {
       setView('ADMIN_DASHBOARD');
       setAdminPin('');
-      setIsDemoMode(false);
     } else {
-      alert("Incorrect PIN");
+\      alert("Incorrect PIN");
       setAdminPin('');
     }
   };
@@ -441,13 +436,6 @@ const App = () => {
 
   return (
     <div className="app-shell">
-      {/* DEMO MODE BANNER */}
-      {isDemoMode && (
-        <div className="print:hidden" style={{ background: '#ef4444', color: 'white', padding: '0.75rem', textAlign: 'center', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', letterSpacing: '0.05em', zIndex: 50, position: 'relative', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-          <Lock size={18} /> DEMO SIGN IN APP MODE
-        </div>
-      )}
-
       {pickingLogoTarget && (
         <div style={{position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem'}}>
           <div style={{background: 'white', padding: '2rem', borderRadius: '1.5rem', maxWidth: '600px', width: '100%', maxHeight: '80vh', overflow: 'auto'}}>
@@ -502,49 +490,14 @@ const App = () => {
                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '3rem', alignItems: 'start'}}>
                  <div style={{ background: 'white', padding: '2rem', borderRadius: '1.5rem', border: '1px solid #e2e8f0' }}>
                     
-                    {/* DEMO MODE TOGGLE SETTINGS */}
-                    <div style={{ padding: '1.5rem', background: isDemoMode ? '#fff1f2' : '#f0fdf4', borderRadius: '1rem', border: `1px solid ${isDemoMode ? '#fecaca' : '#bbf7d0'}`, marginBottom: '1.5rem' }}>
-                      <h3 style={{ margin: '0 0 0.5rem 0', color: isDemoMode ? '#be123c' : '#15803d', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <ShieldCheck size={20} /> App Mode Control
-                      </h3>
-                      <p style={{ fontSize: '0.9rem', color: isDemoMode ? '#9f1239' : '#166534', marginBottom: '1rem' }}>
-                        Current Mode: <strong>{isDemoMode ? "DEMO MODE (Restricted)" : "LIVE MODE (Full Access)"}</strong>
-                      </p>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <input 
-                          type="password" 
-                          className="modern-input" 
-                          placeholder="Enter PIN to toggle..." 
-                          value={demoPinInput} 
-                          onChange={(e) => setDemoPinInput(e.target.value)} 
-                          style={{ flex: 1, borderColor: isDemoMode ? '#fda4af' : '#86efac', background: 'white' }}
-                        />
-                        <button 
-                          onClick={() => {
-                            if (demoPinInput === '1999') {
-                              setIsDemoMode(!isDemoMode);
-                              setDemoPinInput('');
-                            } else {
-                              alert('Incorrect PIN.');
-                              setDemoPinInput('');
-                            }
-                          }} 
-                          className="primary-button" 
-                          style={{ width: 'auto', background: isDemoMode ? '#e11d48' : '#16a34a' }}
-                        >
-                          {isDemoMode ? "Unlock Full Access" : "Enable Demo Mode"}
-                        </button>
-                      </div>
-                    </div>
-
                     <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem'}}>
                       <h2 style={{margin:0}}>Configure Page</h2>
                       <button 
-                        onClick={() => isDemoMode ? alert("Publishing is disabled in Demo Mode.") : publishChanges()} 
+                        onClick={publishChanges} 
                         className="primary-button" 
-                        style={{width:'auto', padding:'0.5rem 1rem', background: isDemoMode ? '#94a3b8' : (hasUnpublishedChanges ? '#22c55e' : '#94a3b8'), cursor: isDemoMode ? 'not-allowed' : 'pointer'}}
+                        style={{width:'auto', padding:'0.5rem 1rem', background: hasUnpublishedChanges ? '#22c55e' : '#94a3b8'}}
                       >
-                        {isDemoMode ? <Lock size={16}/> : <Save size={16}/>} {hasUnpublishedChanges && !isDemoMode ? "Publish Changes" : (isDemoMode ? "Locked" : "Up to Date")}
+                        <Save size={16}/> {hasUnpublishedChanges ? "Publish Changes" : "Up to Date"}
                       </button>
                     </div>
 
@@ -607,19 +560,18 @@ const App = () => {
                       <div style={{borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem'}}>
                         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1rem'}}>
                           <label className="input-label">Cloud Presets</label>
-                          <button 
-                            onClick={() => isDemoMode ? alert("Saving presets is disabled in Demo Mode.") : savePreset()} 
+                          <button
+                            onClick={savePreset}
                             className="admin-toggle"
-                            style={{cursor: isDemoMode ? 'not-allowed' : 'pointer', color: isDemoMode ? '#94a3b8' : 'inherit'}}
                           >
-                            {isDemoMode ? <Lock size={14}/> : <Plus size={14}/>} Save Current
+                            <Plus size={14}/> Save Current
                           </button>
                         </div>
                         <div style={{display: 'flex', gap: '0.5rem', flexWrap: 'wrap'}}>
                           {presets.map(p => (
                             <div key={p.id} style={{position: 'relative'}}>
                               <button onClick={() => loadPreset(p)} className="admin-toggle" style={{paddingRight:'2rem'}}>{p.presetName}</button>
-                              <Trash2 size={12} onClick={() => isDemoMode ? alert("Deleting presets is disabled in Demo Mode.") : deleteItem('presets', p.id)} style={{position:'absolute', right:'8px', top:'10px', color: isDemoMode ? '#fca5a5' : '#ef4444', cursor: isDemoMode ? 'not-allowed' : 'pointer'}} />
+                              <Trash2 size={12} onClick={() => deleteItem('presets', p.id)} style={{position:'absolute', right:'8px', top:'10px', color: '#ef4444', cursor: 'pointer'}} />
                             </div>
                           ))}
                         </div>
@@ -643,25 +595,24 @@ const App = () => {
                         <input className="modern-input" placeholder="Search names or email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                      </div>
                      <button 
-                       onClick={() => isDemoMode ? alert("Cleaning duplicates is disabled in Demo Mode.") : cleanDuplicates()} 
+                       onClick={cleanDuplicates} 
                        className="admin-toggle" 
-                       style={{color: isDemoMode ? '#94a3b8' : '#f59e0b', cursor: isDemoMode ? 'not-allowed' : 'pointer'}}
+                       style={{color: '#f59e0b'}}
                      >
-                       {isDemoMode ? <Lock size={18} /> : <Eraser size={18} />} Clean Duplicates
+                       <Eraser size={18} /> Clean Duplicates
                      </button>
                      <button 
-                       onClick={() => isDemoMode ? alert("Export to CSV is disabled in Demo Mode.") : downloadCSV()} 
+                       onClick={downloadCSV} 
                        className="admin-toggle"
-                       style={{color: isDemoMode ? '#94a3b8' : 'inherit', cursor: isDemoMode ? 'not-allowed' : 'pointer'}}
                      >
-                       {isDemoMode ? <Lock size={18} /> : <Download size={18} />} Export CSV
+                       <Download size={18} /> Export CSV
                      </button>
                      <button 
-                       onClick={() => isDemoMode ? alert("Printing to PDF is disabled in Demo Mode.") : window.print()} 
+                       onClick={() => window.print()} 
                        className="primary-button" 
-                       style={{width: 'auto', background: isDemoMode ? '#94a3b8' : '#4f46e5', cursor: isDemoMode ? 'not-allowed' : 'pointer'}}
+                       style={{width: 'auto', background: '#4f46e5'}}
                      >
-                       {isDemoMode ? <Lock size={18} /> : <Printer size={18} />} Print PDF
+                       <Printer size={18} /> Print PDF
                      </button>
                    </div>
                 </header>
@@ -722,9 +673,9 @@ const App = () => {
                               <td className="print:hidden" style={{padding: '1rem', textAlign: 'right'}}>
                                 <Trash2 
                                   size={16} 
-                                  color={isDemoMode ? "#fca5a5" : "#ef4444"} 
-                                  style={{cursor: isDemoMode ? 'not-allowed' : 'pointer'}} 
-                                  onClick={() => isDemoMode ? alert("Deleting records is disabled in Demo Mode.") : deleteItem('public/data/signins', item.id)} 
+                                  color={"#ef4444"} 
+                                  style={{cursor: 'pointer'}} 
+                                  onClick={() => deleteItem('public/data/signins', item.id)} 
                                 />
                               </td>
                             </tr>
@@ -747,7 +698,7 @@ const App = () => {
                       <div onClick={() => {updateBuilder({logo: item.url}); setAdminTab('BUILDER');}} style={{height:'100px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}>
                         <img src={item.url} style={{maxHeight: '100%', maxWidth: '100%', objectFit: 'contain'}} />
                       </div>
-                      <button onClick={() => isDemoMode ? alert("Deleting logos is disabled in Demo Mode.") : deleteLogo(item)} style={{position:'absolute', top:'8px', right:'8px', background:'white', border:'1px solid #fee2e2', color: isDemoMode ? '#fca5a5' : '#ef4444', borderRadius:'50%', padding:'5px', cursor: isDemoMode ? 'not-allowed' : 'pointer'}}><Trash2 size={14}/></button>
+                      <button onClick={() => deleteLogo(item)} style={{position:'absolute', top:'8px', right:'8px', background:'white', border:'1px solid #fee2e2', color: '#ef4444', borderRadius:'50%', padding:'5px', cursor: 'pointer'}}><Trash2 size={14}/></button>
                     </div>
                   ))}
                   {logoLibrary.length === 0 && <p style={{color:'#94a3b8'}}>Library is empty.</p>}
